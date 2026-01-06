@@ -52,13 +52,13 @@ class PurchaseOrderLine(models.Model):
     def _prepare_purchase_order_line(self, product_id, product_qty, product_uom, company_id, partner_id, po):
         res = super()._prepare_purchase_order_line(product_id, product_qty, product_uom, company_id, partner_id, po)
         today = fields.Date.today()
-        uom_po_qty = product_uom._compute_quantity(product_qty, product_id.uom_po_id, rounding_method="HALF-UP")
+        uom_po_qty = product_uom._compute_quantity(product_qty, product_id.uom_id, rounding_method='HALF-UP')
         seller = product_id.with_company(company_id)._select_seller(
             partner_id=partner_id,
-            quantity=product_qty if values.get('force_uom') else uom_po_qty,
+            quantity=product_qty if res.get('force_uom') else uom_po_qty,
             date=po.date_order and max(po.date_order.date(), today) or today,
-            uom_id=product_uom if values.get('force_uom') else product_id.uom_id,
-            params={'force_uom': values.get('force_uom')}
+            uom_id=product_uom if res.get('force_uom') else product_id.uom_id,
+            params={'force_uom': res.get('force_uom')}
         )
         res.update(
             dict(
