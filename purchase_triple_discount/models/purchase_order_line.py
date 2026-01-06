@@ -8,7 +8,7 @@ class PurchaseOrderLine(models.Model):
     _name = "purchase.order.line"
     _inherit = ["purchase.triple.discount.mixin", "purchase.order.line"]
 
-    @api.depends("product_qty", "product_uom", "company_id")
+    @api.depends("product_qty", "product_uom_id", "company_id")
     def _compute_price_unit_and_date_planned_and_name(self):
         res = super()._compute_price_unit_and_date_planned_and_name()
         self._compute_discounts()
@@ -25,7 +25,7 @@ class PurchaseOrderLine(models.Model):
                 date=line.order_id.date_order
                 and line.order_id.date_order.date()
                 or fields.Date.context_today(line),
-                uom_id=line.product_uom,
+                uom_id=line.product_uom_id,
                 params=params,
             )
             if not seller:
@@ -49,22 +49,16 @@ class PurchaseOrderLine(models.Model):
         return res
 
     @api.model
-    def _prepare_purchase_order_line(
-        self, product_id, product_qty, product_uom, company_id, supplier, po
-    ):
-        res = super()._prepare_purchase_order_line(
-            product_id, product_qty, product_uom, company_id, supplier, po
-        )
+    def _prepare_purchase_order_line(self, product_id, product_qty, product_uom, company_id, partner_id, po):
+        res = super()._prepare_purchase_order_line(product_id, product_qty, product_uom, company_id, partner_id, po)
         today = fields.Date.today()
-        partner = supplier.partner_id
-        uom_po_qty = product_uom._compute_quantity(
-            product_qty, product_id.uom_po_id, rounding_method="HALF-UP"
-        )
+        uom_po_qty = product_uom._compute_quantity(product_qty, product_id.uom_po_id, rounding_method="HALF-UP")
         seller = product_id.with_company(company_id)._select_seller(
-            partner_id=partner,
-            quantity=uom_po_qty,
+            partner_id=partner_id,
+            quantity=product_qty if values.get('force_uom') else uom_po_qty,
             date=po.date_order and max(po.date_order.date(), today) or today,
-            uom_id=product_id.uom_po_id,
+            uom_id=product_uom if values.get('force_uom') else product_id.uom_id,
+            params={'force_uom': values.get('force_uom')}
         )
         res.update(
             dict(
