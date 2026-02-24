@@ -34,17 +34,19 @@ class PurchaseRequest(models.Model):
         return self.env["ir.sequence"].next_by_code("purchase.request")
 
     @api.model
-    def _default_picking_type(self):
-        type_obj = self.env["stock.picking.type"]
+    def _default_warehouse(self):
         company_id = self.env.context.get("company_id") or self.env.company.id
-        types = type_obj.search(
-            [("code", "=", "incoming"), ("warehouse_id.company_id", "=", company_id)]
-        )
-        if not types:
-            types = type_obj.search(
-                [("code", "=", "incoming"), ("warehouse_id", "=", False)]
-            )
-        return types[:1]
+        warehouse = self.env["stock.warehouse"].search([("company_id", "=", company_id)], order="seqence", limit=1)
+        return warehouse
+
+    @api.model
+    def _default_picking_type(self):
+        company_id = self.env.context.get("company_id") or self.env.company.id
+        warehouse = self._default_warehouse()
+        if not warehouse:
+            return False
+        picking_type = warehouse.in_type_id
+        return picking_type
 
     @api.depends("state")
     def _compute_is_editable(self):
